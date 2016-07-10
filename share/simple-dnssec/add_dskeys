@@ -27,7 +27,11 @@ while read entry; do
 done < "$file"
 
 (
-	echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API HERE."
+	if [ -d "/usr/share/simple-dnssec/providers/$PROVIDER" ]; then
+		source "/usr/share/simple-dnssec/providers/$PROVIDER/update_ds"
+	else
+		echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API FIRST."
+	fi
 ) | mail -s"DS-record update requested for $ZONE" $MAILADDRESS
 
 exit 0

@@ -144,7 +144,11 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	echo ""
 	echo "All server up to date, updating registry records now..."
 	(
-		echo "PLEASE ADD SUPPORT FOR YOUR PROVIDER'S DNS API HERE."
+		if [ -d "/usr/share/simple-dnssec/providers/$PROVIDER" ]; then
+			source "/usr/share/simple-dnssec/providers/$PROVIDER/update_ns"
+		else
+			echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API FIRST."
+		fi
 	) | mail -s"Nameserver update requested for $DOMAIN" $MAILADDRESS
 	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
 fi

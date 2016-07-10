@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEDIR="$(dirname "$0")"
+BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
 
 ( source "$BASEDIR/templates/update_nameservers" ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
 echo ""
