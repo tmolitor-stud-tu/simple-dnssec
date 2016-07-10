@@ -1,0 +1,27 @@
+cat <<EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<request>
+	<auth>
+		<user>$INTERNETX_USERNAME</user>
+		<password>$INTERNETX_PASSWORD</password>
+		<context>4</context>
+	</auth>
+	<task>
+		<code>0102</code>
+		<domain>
+			<name>$DOMAIN</name>
+EOF
+for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+	echo "			<nserver>"
+	[ "X${NAMESERVERS[$i]:(-1)}" = "X." ] && NS="${NAMESERVERS[$i]%\.}" || NS="${NAMESERVERS[$i]}.$DOMAIN"
+	echo "				<name>$NS</name>"
+	[ -n "${NAMESERVERSIP[$i]}" ] && echo "				<ip>${NAMESERVERSIP[$i]}</ip>"
+	[ -n "${NAMESERVERSIPV6[$i]}" ] && echo "				<ip6>${NAMESERVERSIPV6[$i]}</ip6>"
+	echo "			</nserver>"
+done
+cat <<EOF
+		</domain>
+		<reply_to>$MAILADDRESS</reply_to>
+	</task>
+</request>
+EOF

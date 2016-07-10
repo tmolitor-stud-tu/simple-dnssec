@@ -1,0 +1,27 @@
+cat <<EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<request>
+	<auth>
+		<user>$INTERNETX_USERNAME</user>
+		<password>$INTERNETX_PASSWORD</password>
+		<context>4</context>
+	</auth>
+	<task>
+		<code>0102</code>
+		<domain>
+			<name>$ZONE</name>
+EOF
+for (( i=0; i<${#KEYS[@]}; i++ )); do
+	echo "			<dnssec>"
+	echo "				<flags>${FLAGS[$i]}</flags>"
+	echo "				<protocol>${PROTOCOLS[$i]}</protocol>"
+	echo "				<algorithm>${ALGORITHMS[$i]}</algorithm>"
+	echo "				<publickey>${KEYS[$i]}</publickey>"
+	echo "			</dnssec>"
+done
+cat <<EOF
+		</domain>
+		<reply_to>$MAILADDRESS</reply_to>
+	</task>
+</request>
+EOF

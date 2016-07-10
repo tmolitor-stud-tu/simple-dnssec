@@ -1,0 +1,11 @@
+#!/bin/bash
+
+BASEDIR="$(dirname "$0")"
+
+( source "$BASEDIR/templates/update_nameservers" ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
+echo ""
+echo "==================================="
+echo ""
+( source "$BASEDIR/templates/update_nameservers" ) | "$BASEDIR/call_api.py" 2>&1
+
+exit 0
