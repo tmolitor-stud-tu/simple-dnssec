@@ -9,6 +9,8 @@ if [ $# -le 0 ]; then
 	exit 1
 fi
 
+source /etc/simple-dnssec/common.conf
+
 if grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
 	echo "Zone '$DOMAIN' already operative..."
 	echo ""
@@ -20,9 +22,10 @@ else
 		echo "Copying templates to /srv/dns/$DOMAIN and /srv/dns/$DOMAIN.d/default_records.rrs..."
 		echo "Please adjust these templates to your needs and issue 'zone_compile $DOMAIN' afterwards."
 		echo ""
-		cp /srv/templates/dns_template /srv/dns/$DOMAIN
+		MAILID="$(echo "$MAILADDRESS" | sed 'a|@|.|')"
+		sed "s|dns.example.org|${MAILID}|" /usr/local/share/simple-dnssec/templates/dns_template > /srv/dns/$DOMAIN
 		mkdir /srv/dns/$DOMAIN.d
-		cp /srv/templates/dns_template_default_records /srv/dns/$DOMAIN.d/default_records.rrs
+		cp /usr/local/share/simple-dnssec/templates/dns_template_default_records /srv/dns/$DOMAIN.d/default_records.rrs
 		echo "All done..."
 	fi
 fi

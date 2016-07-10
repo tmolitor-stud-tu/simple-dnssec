@@ -3,10 +3,12 @@
 if [ -z "$1" ]; then
 	file="/srv/dns/dskeys/dskey.$(date +%Y%m%d%H%M%S)"
 	cat > $file
-	cat $file | mail -s"Please refresh your DS-record(s)" dns@example.com
+	cat $file | mail -s"Please refresh your DS-record(s)" $MAILADDRESS
 else
 	file="$1"
 fi
+
+source /etc/simple-dnssec/common.conf
 
 declare -a FLAGS
 declare -a PROTOCOLS
@@ -25,11 +27,7 @@ while read entry; do
 done < "$file"
 
 (
-	( source /srv/templates/dns_xmltemplate_update_dskey ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
-	echo ""
-	echo "==================================="
-	echo ""
-	( source /srv/templates/dns_xmltemplate_update_dskey ) | /usr/local/bin/internetx_xmlupdate 2>&1
-) | mail -s"DS-record update requested for $ZONE" dns@example.com
+	echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API HERE."
+) | mail -s"DS-record update requested for $ZONE" $MAILADDRESS
 
 exit 0

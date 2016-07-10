@@ -4,11 +4,13 @@ ZONE="$1"
 KEYTAG="$2"
 file="$3"
 
+source /etc/simple-dnssec/common.conf
+
 SEEN_KEYTAG=$(dig +nocmd +nocomments +noquestion +noauthority +nostats -t DS $ZONE | awk '{print $5}')
 
 if [ "X$SEEN_KEYTAG" = "X$KEYTAG" ]; then
 	output="$(ods-ksmutil key ds-seen --zone $ZONE --keytag $KEYTAG)"
 	rm /etc/cron.d/waitfords-$KEYTAG 2>/dev/null
-	(cat $file; echo; echo $output) | mail -s"DS-record update successfull for $ZONE (keytag: $KEYTAG)" dns@example.com
+	(cat $file; echo; echo $output) | mail -s"DS-record update successfull for $ZONE (keytag: $KEYTAG)" $MAILADDRESS
 fi
 exit 0

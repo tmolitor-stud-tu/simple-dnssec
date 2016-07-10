@@ -1,7 +1,7 @@
 #!/bin/bash
 for i in /var/lib/opendnssec/signed/*; do
 	ZONE="$(basename $i)"
-	source /srv/templates/nsd_zone_template
+	source /usr/local/share/simple-dnssec/templates/nsd_zone_template
 done > /etc/nsd/nsd.conf.d/zones.conf
 nsd-control reconfig
 sleep 1

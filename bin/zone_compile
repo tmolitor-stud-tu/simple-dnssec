@@ -19,10 +19,10 @@ fi
 # get profile
 PROFILE="${DOMAIN}"
 
-SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn
+SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn (overwritten by opendnssec)
 
 # load profile
-source "/srv/common"
+source "/etc/simple-dnssec/common.conf"
 source "$BASEDIR/$PROFILE"
 
 if [ "X$TEMPLATE" = "Xtrue" ]; then
@@ -42,7 +42,7 @@ NS1=${NAMESERVERS[0]}
 	echo " ${SERIAL} ; Serial yyyymmddnn"
 	echo " ${REFRESH} ; Refresh after this time"
 	echo " ${RETRY} ; Retry after this time"
-	echo " ${EXPIER} ; Expire after this time"
+	echo " ${EXPIRE} ; Expire after this time"
 	echo " ${MAXNEGTIVE}) ; Minimum negative caching time"
 	echo ""
 	
@@ -144,12 +144,8 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	echo ""
 	echo "All server up to date, updating registry records now..."
 	(
-		( source /srv/templates/dns_xmltemplate_update_nameservers ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
-		echo ""
-		echo "==================================="
-		echo ""
-		( source /srv/templates/dns_xmltemplate_update_nameservers ) | /usr/local/bin/internetx_xmlupdate 2>&1
-	) | mail -s"Nameserver update requested for $DOMAIN" dns@mexample.org
+		echo "PLEASE ADD SUPPORT FOR YOUR PROVIDER'S DNS API HERE."
+	) | mail -s"Nameserver update requested for $DOMAIN" $MAILADDRESS
 	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
 fi
 

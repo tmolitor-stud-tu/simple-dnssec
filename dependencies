@@ -1,0 +1,8 @@
+binaries used:
+sed
+dig
+
+packages used:
+opendnssec
+nsd
+python

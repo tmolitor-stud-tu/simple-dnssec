@@ -7,8 +7,4 @@ cat <<EOF
 ; default records
 @ ${ATTL} IN A ${WWWIP}
 @ ${ATTL} IN AAAA ${WWWIPV6}
-
-;spf and dmarc records
-@ ${TTL} IN TXT "v=spf1 mx -all"
-_dmarc ${TTL} IN TXT "v=DMARC1; p=reject; sp=reject; pct=100; rua=mailto:dmarc-report@${DOMAIN};"
 EOF
