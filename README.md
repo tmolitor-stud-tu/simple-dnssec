@@ -13,4 +13,5 @@ TODO
 
 ## Roadmap
 
-TODO
+* Support multiple named
+* Support multiple providers for submitting public keys
