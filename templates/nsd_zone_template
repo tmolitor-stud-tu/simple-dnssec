@@ -1,0 +1,17 @@
+cat <<EOF
+zone:
+	name: "$ZONE"
+	zonefile: "$ZONE"
+
+	# This is a master zone. Slaves are listed below.
+	# If no access control elements are provided, this zone
+	# will not be served to/from other servers.
+	#notify: 80.237.128.10 NOKEY
+	#provide-xfr: 80.237.128.10 NOKEY
+	#provide-xfr: 80.237.128.0/24 NOKEY
+
+	notify: 174.37.196.55 NOKEY
+	provide-xfr: 174.37.196.55/32 NOKEY
+
+	notify-retry: 4
+EOF

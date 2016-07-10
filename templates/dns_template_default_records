@@ -1,0 +1,14 @@
+# this is a template, please adjust the mx ip(s) to your needs
+# every *.rrs file has to start with 'cat <<EOF' and end with 'EOF'
+# in between you can use the shell variables WWWIP, WWWIPV6, ATTL, TTL
+# and others as defined in your primary config file
+
+cat <<EOF
+; default records
+@ ${ATTL} IN A ${WWWIP}
+@ ${ATTL} IN AAAA ${WWWIPV6}
+
+;spf and dmarc records
+@ ${TTL} IN TXT "v=spf1 mx -all"
+_dmarc ${TTL} IN TXT "v=DMARC1; p=reject; sp=reject; pct=100; rua=mailto:dmarc-report@${DOMAIN};"
+EOF

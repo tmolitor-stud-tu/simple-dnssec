@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+	file="/srv/dns/dskeys/dskey.$(date +%Y%m%d%H%M%S)"
+	cat > $file
+	cat $file | mail -s"Please refresh your DS-record(s)" dns@example.com
+else
+	file="$1"
+fi
+
+declare -a FLAGS
+declare -a PROTOCOLS
+declare -a ALGORITHMS
+declare -a KEYS
+while read entry; do
+	ZONE=$(echo "$entry" | awk '{print $1}')
+	[ "X${ZONE:(-1)}" = "X." ] && ZONE="${ZONE%\.}"
+	KEYTAG=$(/usr/local/bin/gen_keytag $(echo "$entry" | awk '{printf "%s %s %s %s", $5, $6, $7, $8}'))
+	echo "0 *     * * *     root   /usr/local/bin/ds_seen $ZONE $KEYTAG $file" > /etc/cron.d/waitfords-$KEYTAG
+	
+	FLAGS+=($(echo "$entry" | awk '{print $5}'))
+	PROTOCOLS+=($(echo "$entry" | awk '{print $6}'))
+	ALGORITHMS+=($(echo "$entry" | awk '{print $7}'))
+	KEYS+=($(echo "$entry" | awk '{print $8}'))
+done < "$file"
+
+(
+	( source /srv/templates/dns_xmltemplate_update_dskey ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
+	echo ""
+	echo "==================================="
+	echo ""
+	( source /srv/templates/dns_xmltemplate_update_dskey ) | /usr/local/bin/internetx_xmlupdate 2>&1
+) | mail -s"DS-record update requested for $ZONE" dns@example.com
+
+exit 0

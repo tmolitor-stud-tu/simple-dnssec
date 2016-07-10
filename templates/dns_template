@@ -1,0 +1,28 @@
+# ********************************************************************************************************************
+# *** WARNING *** This is a template only, please adapt it to your needs and remove the following line *** WARNING ***
+# *** WARNING *** See /srv/dns/<domain>.d/default_records.rrs template, too!                           *** WARNING ***
+# ********************************************************************************************************************
+TEMPLATE="true"
+
+#some settings (mostly SOA)
+TTL="1h"					# Default TTL in zonefile
+NSTTL="86400"					# Default TTL for NS records (same time as glue in DENIC database)
+ATTL="3600"					# Default TTL for each DNS rec (used by *.rrs files)
+EMAILID="dns.example.org."		# SOA Record hostmaster email
+REFRESH="3600"					# SOA Record refresh after 1 hour
+RETRY="900"					# SOA Record retry after 15 minutes
+EXPIER="1w"					# SOA Record expire after 1 week
+MAXNEGTIVE="900"				# SOA Record minimum negative caching of 15 minutes
+
+# name server names FQDN
+NAMESERVERS=("ns1.example.org." "ns2.example.org.")
+
+# name server IPs,
+# leave it blank if you don't need them as follows
+NAMESERVERSIP=()
+NAMESERVERSIPV6=()
+
+# mail server names
+# leave it blank if you don't need them
+MAILSERVERS=("mail1.example.org." "mail2.example.org.")
+

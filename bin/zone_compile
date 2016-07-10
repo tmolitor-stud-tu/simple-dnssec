@@ -1,0 +1,156 @@
+#!/bin/bash
+#adapted from: https://gist.github.com/doganaydin/910909
+
+DOMAIN="$1"
+BASEDIR="/srv/dns"
+
+if [ $# -le 0 ]; then
+	echo "Syntax: $(basename $0) domainname"
+	echo "Example: $(basename $0) example.com"
+	exit 1
+fi
+
+if [ ! -r /srv/dns/$DOMAIN ]; then
+        echo "Error: Please create /srv/dns/$DOMAIN config file first using 'zone_add domainname'!"
+        echo ""
+        exit 3
+fi
+
+# get profile
+PROFILE="${DOMAIN}"
+
+SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn
+
+# load profile
+source "/srv/common"
+source "$BASEDIR/$PROFILE"
+
+if [ "X$TEMPLATE" = "Xtrue" ]; then
+	echo "Error: Please adjust /srv/dns/$DOMAIN config file to your needs first!"
+	echo ""
+	exit 4
+fi
+
+# set default ns1
+NS1=${NAMESERVERS[0]}
+
+( 
+	###### start SOA ######
+	echo "\$ORIGIN ${DOMAIN}."
+	echo "\$TTL ${TTL}"
+	echo "@ IN SOA ${NS1} ${EMAILID}("
+	echo " ${SERIAL} ; Serial yyyymmddnn"
+	echo " ${REFRESH} ; Refresh after this time"
+	echo " ${RETRY} ; Retry after this time"
+	echo " ${EXPIER} ; Expire after this time"
+	echo " ${MAXNEGTIVE}) ; Minimum negative caching time"
+	echo ""
+	
+	###### start Name servers #######
+	# Get length of an array
+	tLen=${#NAMESERVERS[@]}
+	
+	# use for loop read all nameservers
+	echo "; Name servers for $DOMAIN"
+	for (( i=0; i<${tLen}; i++ )); do
+		echo "@ ${NSTTL} IN NS ${NAMESERVERS[$i]}"
+	done
+	
+	# Default Nameserver IPs
+	# get length of an array
+	ttLen=${#NAMESERVERSIP[@]}
+	# make sure both nameserver and their IP match
+	#if [ $tLen -eq $ttLen ]
+	#then
+	# use for loop read all nameservers IPs
+		for (( i=0; i<${#NAMESERVERSIP[@]}; i++ )); do
+			#[ "X${NAMESERVERS[$i]:(-1)}" = "X." ] && thisNs="${NAMESERVERS[$i]}" || thisNs="${NAMESERVERS[$i]}"
+			#thisNs="$(echo ${NAMESERVERS[$i]} | cut -d'.' -f1)"
+			thisNs="${NAMESERVERS[$i]}"
+			[ -n "${NAMESERVERSIP[$i]}" ] && echo "${thisNs} ${NSTTL} IN A ${NAMESERVERSIP[$i]}"
+		done
+		for (( i=0; i<${#NAMESERVERSIPV6[@]}; i++ )); do
+			#thisNs="$(echo ${NAMESERVERS[$i]} | cut -d'.' -f1)"
+			thisNs="${NAMESERVERS[$i]}"
+			[ -n "${NAMESERVERSIPV6[$i]}" ] && echo "${thisNs} ${NSTTL} IN AAAA ${NAMESERVERSIPV6[$i]}"
+		done
+	#else
+	## if we are here means, our nameserver IPs are defined else where else... do nothing
+	#;
+	#fi
+	
+	###### start MX section #######
+	# get length of an array
+	tmLen=${#MAILSERVERS[@]}
+	# use for loop read all mailservers
+	echo "; MX Records"
+	for (( i=0; i<${tmLen}; i++ )); do
+		echo "@ ${ATTL} IN MX $(( 10*${i} + 10 )) ${MAILSERVERS[$i]}"
+	done
+	
+	####### start normal section #######
+	for rrs in $BASEDIR/${DOMAIN}.d/*.rrs; do
+		source $rrs
+	done
+	
+) > "/var/lib/opendnssec/unsigned/${DOMAIN}"
+
+#inform opendnssec of zone changes
+if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
+	ods-ksmutil zone add --zone ${DOMAIN}
+	ods-ksmutil update zonelist
+else
+	ods-signer sign ${DOMAIN}
+fi
+
+#update registrar nameservers
+nshash=$(cat $BASEDIR/${DOMAIN}.d/nameservers.hash 2>/dev/null)
+newnshash=$(
+(
+	for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+		echo ${NAMESERVERS[$i]}
+		echo ${NAMESERVERSIP[$i]}
+		echo ${NAMESERVERSIPV6[$i]}
+	done
+) | sha1sum | awk '{print $1}')
+if [ "X$nshash" != "X$newnshash" ]; then
+	echo "Updating registry NS- and glue-records..."
+	echo "Waiting for nameserver changes to propagate to secondary NS before updating registry records..."
+	bold=$(tput bold)
+	normal=$(tput sgr0)
+	uptodate=()
+	SECONDS=0
+	while(true) do
+		#check status
+		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+			server="${NAMESERVERSIP[$i]}"
+			[ -z "$servers" ] && server="${NAMESERVERSIPV6[$i]}"
+			[ -z "$servers" ] && server="${NAMESERVERS[$i]}"
+			soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
+			[ -n "$soattl" ] && uptodate[$i]="true"
+		done
+		#output status and check if all servers are up to date
+		checkagain="false"
+		echo -en "\e[0K\r${bold}$(($SECONDS / 60))m$(($SECONDS % 60))s: Current status (bold ones are up to date):${normal} "
+		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+			[ "${uptodate[$i]}" = "true" ] && echo -n "${bold}"
+			echo -n "${NAMESERVERS[$i]} "
+			[ "${uptodate[$i]}" = "true" ] && echo -n "${normal}"
+			[ "${uptodate[$i]}" != "true" ] && checkagain="true"
+		done
+		[ "$checkagain" != "true" ] && break;
+		sleep 4
+	done
+	echo ""
+	echo "All server up to date, updating registry records now..."
+	(
+		( source /srv/templates/dns_xmltemplate_update_nameservers ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
+		echo ""
+		echo "==================================="
+		echo ""
+		( source /srv/templates/dns_xmltemplate_update_nameservers ) | /usr/local/bin/internetx_xmlupdate 2>&1
+	) | mail -s"Nameserver update requested for $DOMAIN" dns@mexample.org
+	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
+fi
+
+exit 0

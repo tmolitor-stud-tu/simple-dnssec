@@ -1,0 +1,36 @@
+#!/bin/bash
+
+if [ $# -le 0 ]; then
+	echo "Usage: $(basename $0) domain zone"
+	echo "Usage: $(basename $0) fqdn"
+	exit 1
+fi
+DOMAIN="$1"
+ZONE="$2"
+
+file="$DOMAIN.$ZONE"
+if [ -z "$ZONE" ]; then
+	file="$DOMAIN"
+	DOMAIN="$DOMAIN."
+fi
+
+#generate fingerprint
+FINGERPRINT="$(cat "/srv/ssl/cache/$file.crt" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | tr -d : | awk -F= '{print $2}')"
+OLD_FINGERPRINT="$(cat "/srv/ssl/cache/$file.crt.old" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | tr -d : | awk -F= '{print $2}')"
+NEW_FINGERPRINT="$(cat "/srv/ssl/cache/$file.crt.new" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | tr -d : | awk -F= '{print $2}')"
+
+#output full tlsa record
+function output()
+{
+	#require certificate chain and this certificate (first number)
+	echo "_443._tcp.$DOMAIN \${ATTL} IN TLSA (3 0 1 $1)"
+}
+[ -n "$FINGERPRINT" ] && output "$FINGERPRINT"
+#[ -n "$OLD_FINGERPRINT" ] && output "$OLD_FINGERPRINT"
+[ -n "$NEW_FINGERPRINT" ] && output "$NEW_FINGERPRINT"
+
+#only return zero if at least one certificate fingerprint (current, new ort old) could be calculated
+if [ -n "$FINGERPRINT" -o -n "$OLD_FINGERPRINT" -o -n "$NEW_FINGERPRINT" ]; then
+	exit 0
+fi
+exit 1
