@@ -16,7 +16,7 @@ fi
 source $CONFIG
 
 if [ ! -v PREFIX ]; then
-    PREFIX=$(readlink -f "$(dirname $(readlink -f $0))/../")
+    PREFIX=$(readlink -f "$(dirname $(readlink -f "$0"))/../")
 fi
 
 source $PREFIX/share/simple-dnssec/common.sh
