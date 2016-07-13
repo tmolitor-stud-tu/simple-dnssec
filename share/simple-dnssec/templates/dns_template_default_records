@@ -5,6 +5,6 @@
 
 cat <<EOF
 ; default records
-@ ${ATTL} IN A ${WWWIP}
-@ ${ATTL} IN AAAA ${WWWIPV6}
+@ ${ATTL} IN A ${DEFAULT_BARE_DOMAIN_A}
+@ ${ATTL} IN AAAA ${DEFAULT_BARE_DOMAIN_AAAA}
 EOF

@@ -1,14 +1,33 @@
 #!/bin/bash
 #adapted from: https://gist.github.com/doganaydin/910909
 
-DOMAIN="$1"
-BASEDIR="/srv/dns"
+set -euo pipefail
+IFS=$'\n\t'
+
+if [ ! -v CONFIG ]; then
+    CONFIG="/etc/simple-dnssec/common.conf"
+fi
+
+if [ ! -f $CONFIG ]; then
+    echo "Config file does not exist. Please install this application."
+    exit 1
+fi
+
+source $CONFIG
+
+if [ ! -v PREFIX ]; then
+    PREFIX=$(readlink -f "$(dirname $(readlink -f $0))/../")
+fi
+
+source $PREFIX/share/simple-dnssec/common.sh
 
 if [ $# -le 0 ]; then
 	echo "Syntax: $(basename $0) domainname"
 	echo "Example: $(basename $0) example.com"
 	exit 1
 fi
+
+DOMAIN="$1"
 
 if [ ! -r /srv/dns/$DOMAIN ]; then
         echo "Error: Please create /srv/dns/$DOMAIN config file first using 'zone_add domainname'!"
@@ -22,7 +41,6 @@ PROFILE="${DOMAIN}"
 SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn (overwritten by opendnssec)
 
 # load profile
-source "/etc/simple-dnssec/common.conf"
 source "$BASEDIR/$PROFILE"
 
 if [ "X$TEMPLATE" = "Xtrue" ]; then
@@ -96,23 +114,33 @@ NS1=${NAMESERVERS[0]}
 ) > "/var/lib/opendnssec/unsigned/${DOMAIN}"
 
 #inform opendnssec of zone changes
-if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
-	ods-ksmutil zone add --zone ${DOMAIN}
-	ods-ksmutil update zonelist
-else
-	ods-signer sign ${DOMAIN}
-fi
+# if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
+# 	sudo ods-ksmutil zone add --zone ${DOMAIN}
+# 	sudo ods-ksmutil update zonelist
+# else
+# 	sudo ods-signer sign ${DOMAIN}
+# fi
 
 #update registrar nameservers
-nshash=$(cat $BASEDIR/${DOMAIN}.d/nameservers.hash 2>/dev/null)
+if [ -f $BASEDIR/${DOMAIN}.d/nameservers.hash ]; then
+    nshash=$(cat $BASEDIR/${DOMAIN}.d/nameservers.hash 2>/dev/null)
+else
+    nshash=""
+fi
+
 newnshash=$(
 (
-	for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-		echo ${NAMESERVERS[$i]}
-		echo ${NAMESERVERSIP[$i]}
-		echo ${NAMESERVERSIPV6[$i]}
-	done
+    for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+	echo ${NAMESERVERS[$i]}
+        if [ -v NAMESERVERSIP[$i] ]; then
+	    echo ${NAMESERVERSIP[$i]}
+        fi
+        if [ -v NAMESERVERSIPV6[$i] ]; then
+	    echo ${NAMESERVERSIPV6[$i]}
+        fi
+    done
 ) | sha1sum | awk '{print $1}')
+
 if [ "X$nshash" != "X$newnshash" ]; then
 	echo "Updating registry NS- and glue-records..."
 	echo "Waiting for nameserver changes to propagate to secondary NS before updating registry records..."
@@ -122,34 +150,38 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	SECONDS=0
 	while(true) do
 		#check status
-		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-			server="${NAMESERVERSIP[$i]}"
-			[ -z "$servers" ] && server="${NAMESERVERSIPV6[$i]}"
-			[ -z "$servers" ] && server="${NAMESERVERS[$i]}"
-			soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
-			[ -n "$soattl" ] && uptodate[$i]="true"
-		done
-		#output status and check if all servers are up to date
-		checkagain="false"
-		echo -en "\e[0K\r${bold}$(($SECONDS / 60))m$(($SECONDS % 60))s: Current status (bold ones are up to date):${normal} "
-		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-			[ "${uptodate[$i]}" = "true" ] && echo -n "${bold}"
-			echo -n "${NAMESERVERS[$i]} "
-			[ "${uptodate[$i]}" = "true" ] && echo -n "${normal}"
-			[ "${uptodate[$i]}" != "true" ] && checkagain="true"
-		done
-		[ "$checkagain" != "true" ] && break;
-		sleep 4
+	     for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+                 if [ -v NAMESERVERSIP[$i] ]; then
+		     server="${NAMESERVERSIP[$i]}"
+                 elif [ -v NAMESERVERSIPV6[$i] ]; then
+		     server="${NAMESERVERSIPV6[$i]}"
+                 else
+		     server="${NAMESERVERS[$i]}"
+                 fi
+		 soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
+		 [ -n "$soattl" ] && uptodate[$i]="true"
+	     done
+	     #output status and check if all servers are up to date
+	     checkagain="false"
+	     echo -en "\e[0K\r${bold}$(($SECONDS / 60))m$(($SECONDS % 60))s: Current status (bold ones are up to date):${normal} "
+	     for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+		 [ "${uptodate[$i]}" = "true" ] && echo -n "${bold}"
+		 echo -n "${NAMESERVERS[$i]} "
+		 [ "${uptodate[$i]}" = "true" ] && echo -n "${normal}"
+		 [ "${uptodate[$i]}" != "true" ] && checkagain="true"
+	     done
+	     [ "$checkagain" != "true" ] && break;
+	     sleep 4
 	done
 	echo ""
+	if [ ! -d "$PREFIX/share/simple-dnssec/providers/$PROVIDER" ]; then
+	    echo "Unknown provider \"$PROVIDER\". Please check that you do not have a typo."
+            exit 1
+	fi
 	echo "All server up to date, updating registry records now..."
 	(
-		if [ -d "/usr/share/simple-dnssec/providers/$PROVIDER" ]; then
-			source "/usr/share/simple-dnssec/providers/$PROVIDER/update_ns"
-		else
-			echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API FIRST."
-		fi
-	) | mail -s"Nameserver update requested for $DOMAIN" $MAILADDRESS
+            source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ns"
+	) | mail -a "From: $MAILSENDER" -s "Nameserver update requested for $DOMAIN" $MAILRECIPIENT
 	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
 fi
 

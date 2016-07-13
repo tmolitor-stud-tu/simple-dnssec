@@ -1,7 +1,26 @@
 #!/bin/bash
 
+set -euo pipefail
+IFS=$'\n\t'
+
+if [ ! -v CONFIG ]; then
+    CONFIG="/etc/simple-dnssec/common.conf"
+fi
+
+if [ ! -f $CONFIG ]; then
+    echo "Config file does not exist. Please install this application."
+    exit 1
+fi
+
+source $CONFIG
+
+if [ ! -v PREFIX ]; then
+    PREFIX=$(readlink -f "$(dirname $(readlink -f $0))/../")
+fi
+
+source $PREFIX/share/simple-dnssec/common.sh
+
 DOMAIN="$1"
-BASEDIR="/srv/dns"
 
 if [ $# -le 0 ]; then
 	echo "Syntax: $(basename $0) domainname"
@@ -17,8 +36,8 @@ if grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml
 		rm /var/lib/opendnssec/signed/${DOMAIN}
 		reload_zonefiles
 		
-		echo "Please remove lame entries at /srv/dns/$DOMAIN and /srv/dns/$DOMAIN.d/* yourself."
-		echo "Use 'rm -r /srv/dns/$DOMAIN /srv/dns/$DOMAIN.d' to do this, or issue 'zone_compile $DOMAIN'"
+		echo "Please remove lame entries at $BASEDIR/$DOMAIN and $BASEDIR/$DOMAIN.d/* yourself."
+		echo "Use 'rm -r $BASEDIR/$DOMAIN $BASEDIR/$DOMAIN.d' to do this, or issue 'zone_compile $DOMAIN'"
 		echo "to make this zone operational again."
 		echo "Beware: This requires a new KSK and DS record including the propagation delay"
 		echo "till this record becomes active!"
@@ -28,8 +47,8 @@ else
 	echo "Zone '$DOMAIN' not operative, nothing to remove..."
 	echo ""
 
-	echo "Please remove lame entries at /srv/dns/$DOMAIN and /srv/dns/$DOMAIN.d/* yourself."
-	echo "Use 'rm -r /srv/dns/$DOMAIN /srv/dns/$DOMAIN.d' to do this, or issue 'zone_compile $DOMAIN'"
+	echo "Please remove lame entries at $BASEDIR/$DOMAIN and $BASEDIR/$DOMAIN.d/* yourself."
+	echo "Use 'rm -r $BASEDIR/$DOMAIN $BASEDIR/$DOMAIN.d' to do this, or issue 'zone_compile $DOMAIN'"
 	echo "to make this zone operational again."
 	echo "Beware: This requires a new KSK and DS record including the propagation delay"
 	echo "till this record becomes active!"

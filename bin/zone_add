@@ -1,15 +1,32 @@
 #!/bin/bash
 
+set -euo pipefail
+IFS=$'\n\t'
+
+if [ ! -v CONFIG ]; then
+    CONFIG="/etc/simple-dnssec/common.conf"
+fi
+
+if [ ! -f $CONFIG ]; then
+    echo "Config file does not exist. Please install this application."
+    exit 1
+fi
+
+source $CONFIG
+
+if [ ! -v PREFIX ]; then
+    PREFIX=$(readlink -f "$(dirname $(readlink -f $0))/../")
+fi
+
+source $PREFIX/share/simple-dnssec/common.sh
+
 DOMAIN="$1"
-BASEDIR="/srv/dns"
 
 if [ $# -le 0 ]; then
 	echo "Syntax: $(basename $0) domainname"
 	echo ""
 	exit 1
 fi
-
-source /etc/simple-dnssec/common.conf
 
 if grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
 	echo "Zone '$DOMAIN' already operative..."
@@ -19,13 +36,12 @@ else
 		echo "Zone '$DOMAIN' already existent..."
 		echo ""
 	else
-		echo "Copying templates to /srv/dns/$DOMAIN and /srv/dns/$DOMAIN.d/default_records.rrs..."
+		echo "Copying templates to $BASEDIR/$DOMAIN and $BASEDIR/$DOMAIN.d/default_records.rrs..."
 		echo "Please adjust these templates to your needs and issue 'zone_compile $DOMAIN' afterwards."
 		echo ""
-		MAILID="$(echo "$MAILADDRESS" | sed 'a|@|.|')"
-		sed "s|dns.example.org|${MAILID}|" /usr/local/share/simple-dnssec/templates/dns_template > /srv/dns/$DOMAIN
-		mkdir /srv/dns/$DOMAIN.d
-		cp /usr/local/share/simple-dnssec/templates/dns_template_default_records /srv/dns/$DOMAIN.d/default_records.rrs
+		sed "s|dns.example.org|${DEFAULT_SOA_RNAME}|" $PREFIX/share/simple-dnssec/templates/dns_template > $BASEDIR/$DOMAIN
+		mkdir $BASEDIR/$DOMAIN.d
+		cp $PREFIX/share/simple-dnssec/templates/dns_template_default_records $BASEDIR/$DOMAIN.d/default_records.rrs
 		echo "All done..."
 	fi
 fi

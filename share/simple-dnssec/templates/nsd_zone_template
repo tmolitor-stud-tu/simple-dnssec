@@ -6,8 +6,8 @@ zone:
 	# This is a master zone. Slaves are listed below.
 	# If no access control elements are provided, this zone
 	# will not be served to/from other servers.
-	notify: $SECONDARY NOKEY
-	provide-xfr: $SECONDARY NOKEY
+	notify: $SECONDARY_NAMESERVER NOKEY
+	provide-xfr: $SECONDARY_NAMESERVER NOKEY
 
 	notify-retry: 4
 EOF
