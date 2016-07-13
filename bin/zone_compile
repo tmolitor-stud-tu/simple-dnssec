@@ -114,12 +114,12 @@ NS1=${NAMESERVERS[0]}
 ) > "/var/lib/opendnssec/unsigned/${DOMAIN}"
 
 #inform opendnssec of zone changes
-# if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
-# 	sudo ods-ksmutil zone add --zone ${DOMAIN}
-# 	sudo ods-ksmutil update zonelist
-# else
-# 	sudo ods-signer sign ${DOMAIN}
-# fi
+if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
+	sudo ods-ksmutil zone add --zone ${DOMAIN}
+	sudo ods-ksmutil update zonelist
+else
+	sudo ods-signer sign ${DOMAIN}
+fi
 
 #update registrar nameservers
 if [ -f $BASEDIR/${DOMAIN}.d/nameservers.hash ]; then
