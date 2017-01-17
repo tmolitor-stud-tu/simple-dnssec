@@ -34,4 +34,14 @@ done < "$file"
 	fi
 ) | mail -s"DS-record update requested for $ZONE" $MAILADDRESS
 
+#also update nameservers to be on the safe side
+DOMAI="$ZONE"
+(
+	( source /srv/templates/dns_xmltemplate_update_nameservers ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
+	echo "" 
+	echo "==================================="
+	echo ""
+	( source /srv/templates/dns_xmltemplate_update_nameservers ) | /usr/local/bin/internetx_xmlupdate 2>&1
+) | mail -s"Nameserver update requested for $DOMAIN" dns@molitor-dietzel.de
+
 exit 0
