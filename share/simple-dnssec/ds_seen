@@ -1,10 +1,19 @@
 #!/bin/bash
 
+if [ ! -v CONFIG ]; then
+	CONFIG="/etc/simple-dnssec/common.conf"
+fi
+
+if [ ! -f $CONFIG ]; then
+	echo "Config file does not exist. Please install this application."
+	exit 1
+fi
+
+source $CONFIG
+
 ZONE="$1"
 KEYTAG="$2"
 file="$3"
-
-source /etc/simple-dnssec/common.conf
 
 SEEN_KEYTAG=$(dig +nocmd +nocomments +noquestion +noauthority +nostats -t DS $ZONE | awk '{print $5}')
 

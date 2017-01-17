@@ -1,14 +1,28 @@
 #!/bin/bash
 
+if [ ! -v CONFIG ]; then
+	CONFIG="/etc/simple-dnssec/common.conf"
+fi
+
+if [ ! -f $CONFIG ]; then
+	echo "Config file does not exist. Please install this application."
+	exit 1
+fi
+
+source $CONFIG
+
+if [ ! -v PREFIX ]; then
+	PREFIX=$(readlink -f "$(dirname $(readlink -f "$0"))/../../")
+fi
+
 if [ -z "$1" ]; then
-	file="/srv/dns/dskeys/dskey.$(date +%Y%m%d%H%M%S)"
+	mkdir -p "$BASEDIR/dskeys"
+	file="$BASEDIR/dskeys/dskey.$(date +%Y%m%d%H%M%S)"
 	cat > $file
 	cat $file | mail -s"Please refresh your DS-record(s)" $MAILADDRESS
 else
 	file="$1"
 fi
-
-source /etc/simple-dnssec/common.conf
 
 declare -a FLAGS
 declare -a PROTOCOLS
@@ -17,8 +31,8 @@ declare -a KEYS
 while read entry; do
 	ZONE=$(echo "$entry" | awk '{print $1}')
 	[ "X${ZONE:(-1)}" = "X." ] && ZONE="${ZONE%\.}"
-	KEYTAG=$(/usr/local/bin/gen_keytag $(echo "$entry" | awk '{printf "%s %s %s %s", $5, $6, $7, $8}'))
-	echo "0 *     * * *     root   /usr/local/bin/ds_seen $ZONE $KEYTAG $file" > /etc/cron.d/waitfords-$KEYTAG
+	KEYTAG=$($PREFIX/share/simple-dnssec/gen_keytag $(echo "$entry" | awk '{printf "%s %s %s %s", $5, $6, $7, $8}'))
+	echo "0 *     * * *     root   $PREFIX/share/simple-dnssec/ds_seen $ZONE $KEYTAG $file" > /etc/cron.d/waitfords-$KEYTAG
 	
 	FLAGS+=($(echo "$entry" | awk '{print $5}'))
 	PROTOCOLS+=($(echo "$entry" | awk '{print $6}'))
@@ -27,21 +41,22 @@ while read entry; do
 done < "$file"
 
 (
-	if [ -d "/usr/share/simple-dnssec/providers/$PROVIDER" ]; then
-		source "/usr/share/simple-dnssec/providers/$PROVIDER/update_ds"
+	if [ -d "$PREFIX/share/simple-dnssec/providers/$PROVIDER" ]; then
+		source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ds"
 	else
 		echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API FIRST."
 	fi
-) | mail -s"DS-record update requested for $ZONE" $MAILADDRESS
+) | mail -a "From: $MAILSENDER" -s "DS-record update requested for $ZONE" $MAILRECIPIENT
 
 #also update nameservers to be on the safe side
-DOMAI="$ZONE"
+DOMAIN="$ZONE"
 (
-	( source /srv/templates/dns_xmltemplate_update_nameservers ) | sed 's/<password>.*<\/password>/<password>HIDDEN<\/password>/'
-	echo "" 
-	echo "==================================="
-	echo ""
-	( source /srv/templates/dns_xmltemplate_update_nameservers ) | /usr/local/bin/internetx_xmlupdate 2>&1
-) | mail -s"Nameserver update requested for $DOMAIN" dns@molitor-dietzel.de
+	if [ -d "$PREFIX/share/simple-dnssec/providers/$PROVIDER" ]; then
+		source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ns"
+	else
+		echo "PLEASE ADD SUPPORT FOR YOU PROVIDER'S DNS API FIRST."
+	fi
+) | mail -a "From: $MAILSENDER" -s "Nameserver update requested for $DOMAIN" $MAILRECIPIENT
+echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
 
 exit 0

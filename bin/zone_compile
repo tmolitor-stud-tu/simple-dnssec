@@ -176,7 +176,7 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	done
 	echo ""
 	if [ ! -d "$PREFIX/share/simple-dnssec/providers/$PROVIDER" ]; then
-		echo "Unknown provider \"$PROVIDER\". Please check that you do not have a typo."
+		echo "Unknown or unsupported provider \"$PROVIDER\". Please check that you do not have a typo."
 		exit 1
 	fi
 	echo "All server up to date, updating registry records now..."
