@@ -20,8 +20,10 @@ fi
 
 source $PREFIX/share/simple-dnssec/common.sh
 
-if [ -f "$PREFIX/share/simple-dnssec/${NAMED}_reload_zonefiles" ]; then
-    exec ${NAMED}_reload_zonefiles $@
-else
-    echo "There is no implementation for ${NAMED}"
-fi
+for zonefile in /var/lib/opendnssec/signed/*; do
+    ZONE="$(basename $zonefile)"
+    source $PREFIX/share/simple-dnssec/templates/bind_zone_template
+done > /etc/bind/named.conf.simple-dnssec
+rndc reload
+rndc flush
+exit 0

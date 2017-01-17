@@ -1,0 +1,7 @@
+cat <<EOF
+zone "$ZONE" {
+  type master;
+  file "/var/lib/opendnssec/signed/${ZONE}";
+  allow-transfer { $SECONDAY_NAMESERVER; };
+}
+EOF
