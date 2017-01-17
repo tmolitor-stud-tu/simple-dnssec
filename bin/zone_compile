@@ -5,18 +5,18 @@ set -euo pipefail
 IFS=$'\n\t'
 
 if [ ! -v CONFIG ]; then
-    CONFIG="/etc/simple-dnssec/common.conf"
+	CONFIG="/etc/simple-dnssec/common.conf"
 fi
 
 if [ ! -f $CONFIG ]; then
-    echo "Config file does not exist. Please install this application."
-    exit 1
+	echo "Config file does not exist. Please install this application."
+	exit 1
 fi
 
 source $CONFIG
 
 if [ ! -v PREFIX ]; then
-    PREFIX=$(readlink -f "$(dirname $(readlink -f "$0"))/../")
+	PREFIX=$(readlink -f "$(dirname $(readlink -f "$0"))/../")
 fi
 
 source $PREFIX/share/simple-dnssec/common.sh
@@ -30,9 +30,9 @@ fi
 DOMAIN="$1"
 
 if [ ! -r /srv/dns/$DOMAIN ]; then
-        echo "Error: Please create /srv/dns/$DOMAIN config file first using 'zone_add domainname'!"
-        echo ""
-        exit 3
+	echo "Error: Please create /srv/dns/$DOMAIN config file first using 'zone_add domainname'!"
+	echo ""
+	exit 3
 fi
 
 # get profile
@@ -130,15 +130,15 @@ fi
 
 newnshash=$(
 (
-    for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-	echo ${NAMESERVERS[$i]}
-        if [ -v NAMESERVERSIP[$i] ]; then
-	    echo ${NAMESERVERSIP[$i]}
-        fi
-        if [ -v NAMESERVERSIPV6[$i] ]; then
-	    echo ${NAMESERVERSIPV6[$i]}
-        fi
-    done
+	for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+		echo ${NAMESERVERS[$i]}
+		if [ -v NAMESERVERSIP[$i] ]; then
+			echo ${NAMESERVERSIP[$i]}
+		fi
+		if [ -v NAMESERVERSIPV6[$i] ]; then
+			echo ${NAMESERVERSIPV6[$i]}
+		fi
+	done
 ) | sha1sum | awk '{print $1}')
 
 if [ "X$nshash" != "X$newnshash" ]; then
@@ -146,41 +146,42 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	echo "Waiting for nameserver changes to propagate to secondary NS before updating registry records..."
 	bold=$(tput bold)
 	normal=$(tput sgr0)
+	EXPECTEDNS="$(sort <<<"${NAMESERVERS[*]}" | sort | tr '\n' ' ' | awk '{gsub(/^ +| +$/,"")} {print $0}')"
 	uptodate=()
 	SECONDS=0
 	while(true) do
 		#check status
-	     for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-                 if [ -v NAMESERVERSIP[$i] ]; then
-		     server="${NAMESERVERSIP[$i]}"
-                 elif [ -v NAMESERVERSIPV6[$i] ]; then
-		     server="${NAMESERVERSIPV6[$i]}"
-                 else
-		     server="${NAMESERVERS[$i]}"
-                 fi
-		 soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
-		 [ -n "$soattl" ] && uptodate[$i]="true"
-	     done
-	     #output status and check if all servers are up to date
-	     checkagain="false"
-	     echo -en "\e[0K\r${bold}$(($SECONDS / 60))m$(($SECONDS % 60))s: Current status (bold ones are up to date):${normal} "
-	     for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
-		 [ "${uptodate[$i]}" = "true" ] && echo -n "${bold}"
-		 echo -n "${NAMESERVERS[$i]} "
-		 [ "${uptodate[$i]}" = "true" ] && echo -n "${normal}"
-		 [ "${uptodate[$i]}" != "true" ] && checkagain="true"
-	     done
-	     [ "$checkagain" != "true" ] && break;
-	     sleep 4
+		NSRECORDS=()
+		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+			server="${NAMESERVERSIP[$i]}"
+			[ -z "$server" ] && server="${NAMESERVERSIPV6[$i]}"
+			[ -z "$server" ] && server="${NAMESERVERS[$i]}"
+			soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
+			[ -n "$soattl" ] && NSRECORDS[$i]="$(dig +short -t NS $DOMAIN "@$server" | sort | tr '\n' ' ' | awk '{gsub(/^ +| +$/,"")} {print $0}')"
+		done
+		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+			[ "${NSRECORDS[$i]}" = "$EXPECTEDNS" -a -n "${NSRECORDS[$i]}" ] && uptodate[$i]="true"
+		done
+		#output status and check if all servers are up to date
+		checkagain="false"
+		echo -en "\e[0K\r${bold}$(($SECONDS / 60))m$(($SECONDS % 60))s: Current status (bold ones are up to date):${normal} "
+		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+			[ "${uptodate[$i]}" = "true" ] && echo -n "${bold}"
+			echo -n "${NAMESERVERS[$i]} "
+			[ "${uptodate[$i]}" = "true" ] && echo -n "${normal}"
+			[ "${uptodate[$i]}" != "true" ] && checkagain="true"
+		done
+		[ "$checkagain" != "true" ] && break;
+		sleep 4
 	done
 	echo ""
 	if [ ! -d "$PREFIX/share/simple-dnssec/providers/$PROVIDER" ]; then
-	    echo "Unknown provider \"$PROVIDER\". Please check that you do not have a typo."
-            exit 1
+		echo "Unknown provider \"$PROVIDER\". Please check that you do not have a typo."
+		exit 1
 	fi
 	echo "All server up to date, updating registry records now..."
 	(
-            source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ns"
+		source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ns"
 	) | mail -a "From: $MAILSENDER" -s "Nameserver update requested for $DOMAIN" $MAILRECIPIENT
 	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
 fi
