@@ -19,6 +19,14 @@ for (( i=0; i<${#KEYS[@]}; i++ )); do
 	echo "				<publickey>${KEYS[$i]}</publickey>"
 	echo "			</dnssec>"
 done
+for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
+	echo "			<nserver>"
+	[ "X${NAMESERVERS[$i]:(-1)}" = "X." ] && NS="${NAMESERVERS[$i]%\.}" || NS="${NAMESERVERS[$i]}.$ZONE"
+	echo "				<name>$NS</name>"
+	[ -n "${NAMESERVERSIP[$i]}" ] && echo "				<ip>${NAMESERVERSIP[$i]}</ip>"
+	[ -n "${NAMESERVERSIPV6[$i]}" ] && echo "				<ip6>${NAMESERVERSIPV6[$i]}</ip6>"
+	echo "			</nserver>"
+done
 cat <<EOF
 		</domain>
 		<reply_to>$MAILADDRESS</reply_to>

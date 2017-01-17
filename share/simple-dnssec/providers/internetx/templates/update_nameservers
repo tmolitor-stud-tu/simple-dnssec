@@ -9,11 +9,11 @@ cat <<EOF
 	<task>
 		<code>0102</code>
 		<domain>
-			<name>$DOMAIN</name>
+			<name>$ZONE</name>
 EOF
 for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
 	echo "			<nserver>"
-	[ "X${NAMESERVERS[$i]:(-1)}" = "X." ] && NS="${NAMESERVERS[$i]%\.}" || NS="${NAMESERVERS[$i]}.$DOMAIN"
+	[ "X${NAMESERVERS[$i]:(-1)}" = "X." ] && NS="${NAMESERVERS[$i]%\.}" || NS="${NAMESERVERS[$i]}.$ZONE"
 	echo "				<name>$NS</name>"
 	[ -n "${NAMESERVERSIP[$i]}" ] && echo "				<ip>${NAMESERVERSIP[$i]}</ip>"
 	[ -n "${NAMESERVERSIPV6[$i]}" ] && echo "				<ip6>${NAMESERVERSIPV6[$i]}</ip6>"

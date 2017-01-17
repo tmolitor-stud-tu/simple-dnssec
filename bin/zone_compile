@@ -27,16 +27,16 @@ if [ $# -le 0 ]; then
 	exit 1
 fi
 
-DOMAIN="$1"
+ZONE="$1"
 
-if [ ! -r /srv/dns/$DOMAIN ]; then
-	echo "Error: Please create /srv/dns/$DOMAIN config file first using 'zone_add domainname'!"
+if [ ! -r $BASEDIR/$ZONE ]; then
+	echo "Error: Please create $BASEDIR/$ZONE config file first using 'zone_add domainname'!"
 	echo ""
 	exit 3
 fi
 
 # get profile
-PROFILE="${DOMAIN}"
+PROFILE="${ZONE}"
 
 SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn (overwritten by opendnssec)
 
@@ -44,7 +44,7 @@ SERIAL=$(date +"%Y%m%d")00 # Serial yyyymmddnn (overwritten by opendnssec)
 source "$BASEDIR/$PROFILE"
 
 if [ "X$TEMPLATE" = "Xtrue" ]; then
-	echo "Error: Please adjust /srv/dns/$DOMAIN config file to your needs first!"
+	echo "Error: Please adjust $BASEDIR/$ZONE config file to your needs first!"
 	echo ""
 	exit 4
 fi
@@ -54,7 +54,7 @@ NS1=${NAMESERVERS[0]}
 
 ( 
 	###### start SOA ######
-	echo "\$ORIGIN ${DOMAIN}."
+	echo "\$ORIGIN ${ZONE}."
 	echo "\$TTL ${TTL}"
 	echo "@ IN SOA ${NS1} ${EMAILID}("
 	echo " ${SERIAL} ; Serial yyyymmddnn"
@@ -69,7 +69,7 @@ NS1=${NAMESERVERS[0]}
 	tLen=${#NAMESERVERS[@]}
 	
 	# use for loop read all nameservers
-	echo "; Name servers for $DOMAIN"
+	echo "; Name servers for $ZONE"
 	for (( i=0; i<${tLen}; i++ )); do
 		echo "@ ${NSTTL} IN NS ${NAMESERVERS[$i]}"
 	done
@@ -107,23 +107,23 @@ NS1=${NAMESERVERS[0]}
 	done
 	
 	####### start normal section #######
-	for rrs in $BASEDIR/${DOMAIN}.d/*.rrs; do
+	for rrs in $BASEDIR/${ZONE}.d/*.rrs; do
 		source $rrs
 	done
 	
-) > "/var/lib/opendnssec/unsigned/${DOMAIN}"
+) > "/var/lib/opendnssec/unsigned/${ZONE}"
 
 #inform opendnssec of zone changes
-if ! grep -q "/var/lib/opendnssec/unsigned/${DOMAIN}" /etc/opendnssec/zonelist.xml; then
-	sudo ods-ksmutil zone add --zone ${DOMAIN}
+if ! grep -q "/var/lib/opendnssec/unsigned/${ZONE}" /etc/opendnssec/zonelist.xml; then
+	sudo ods-ksmutil zone add --zone ${ZONE}
 	sudo ods-ksmutil update zonelist
 else
-	sudo ods-signer sign ${DOMAIN}
+	sudo ods-signer sign ${ZONE}
 fi
 
 #update registrar nameservers
-if [ -f $BASEDIR/${DOMAIN}.d/nameservers.hash ]; then
-    nshash=$(cat $BASEDIR/${DOMAIN}.d/nameservers.hash 2>/dev/null)
+if [ -f $BASEDIR/${ZONE}.d/nameservers.hash ]; then
+    nshash=$(cat $BASEDIR/${ZONE}.d/nameservers.hash 2>/dev/null)
 else
     nshash=""
 fi
@@ -156,8 +156,8 @@ if [ "X$nshash" != "X$newnshash" ]; then
 			server="${NAMESERVERSIP[$i]}"
 			[ -z "$server" ] && server="${NAMESERVERSIPV6[$i]}"
 			[ -z "$server" ] && server="${NAMESERVERS[$i]}"
-			soattl="$(dig -t SOA $DOMAIN "@$server" | grep -e "^$DOMAIN\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
-			[ -n "$soattl" ] && NSRECORDS[$i]="$(dig +short -t NS $DOMAIN "@$server" | sort | tr '\n' ' ' | awk '{gsub(/^ +| +$/,"")} {print $0}')"
+			soattl="$(dig -t SOA $ZONE "@$server" | grep -e "^$ZONE\..*IN.*SOA" | awk 'NR==1{print $2; exit}')"
+			[ -n "$soattl" ] && NSRECORDS[$i]="$(dig +short -t NS $ZONE "@$server" | sort | tr '\n' ' ' | awk '{gsub(/^ +| +$/,"")} {print $0}')"
 		done
 		for (( i=0; i<${#NAMESERVERS[@]}; i++ )); do
 			[ "${NSRECORDS[$i]}" = "$EXPECTEDNS" -a -n "${NSRECORDS[$i]}" ] && uptodate[$i]="true"
@@ -182,8 +182,8 @@ if [ "X$nshash" != "X$newnshash" ]; then
 	echo "All server up to date, updating registry records now..."
 	(
 		source "$PREFIX/share/simple-dnssec/providers/$PROVIDER/update_ns"
-	) | mail -a "From: $MAILSENDER" -s "Nameserver update requested for $DOMAIN" $MAILRECIPIENT
-	echo "$newnshash" > $BASEDIR/${DOMAIN}.d/nameservers.hash
+	) | mail -a "From: $MAILSENDER" -s "Nameserver update requested for $ZONE" $MAILRECIPIENT
+	echo "$newnshash" > $BASEDIR/${ZONE}.d/nameservers.hash
 fi
 
 exit 0
